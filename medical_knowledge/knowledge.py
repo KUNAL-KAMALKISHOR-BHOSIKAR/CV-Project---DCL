@@ -29,11 +29,11 @@ class create_knowledge(nn.Module):
         self.register_buffer("text_queue", torch.randn(embed_dim, queue_size))
         # self.register_buffer("knowledge_queue", torch.randn(embed_dim, queue_size))
         if args.bert == 'base':
-            vocab_size = 30522
+            vocab_size = 30524
         elif args.bert == 'sci':
-            vocab_size = 31090
+            vocab_size = 31092
         elif args.bert == 'cli':
-            vocab_size = 28996
+            vocab_size = 28998
         self.register_buffer("knowledge_input_ids_queue", torch.randint(0,vocab_size,(queue_size, 90)))
         # self.register_buffer("knowledge_attention_mask_queue", torch.randint(0, 2, (queue_size, 90)))
         self.register_buffer("knowledge_attention_mask_queue", torch.ones((queue_size, 90)))
@@ -90,8 +90,7 @@ class create_knowledge(nn.Module):
         for i in range(0,k):
             input_ids = topk_knowledge_input_ids[:,i,:]
             attention_mask = topk_knowledge_attention_mask[:,i,:]
-            knowledge_output = self.knowledge_encoder(input_ids, attention_mask = attention_mask,
-                                        return_dict = True, mode = 'text')
+            knowledge_output = self.knowledge_encoder(input_ids, attention_mask = attention_mask, return_dict = True, mode = 'text')
             knowledge_output = knowledge_output.last_hidden_state * weight_value.unsqueeze(-1).unsqueeze(-1)[:,i,:]
             topk_knowledge[:,i,:] = knowledge_output
             # knowledge_output = knowledge_output.last_hidden_state * weight_value.unsqueeze(-1).unsqueeze(-1)[:, i, :, :]

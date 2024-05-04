@@ -125,11 +125,11 @@ class BLIP_Decoder(nn.Module):
         # decoder_config.encoder_width = vision_width
         decoder_config = med_config
         if args.bert == 'base':
-            self.text_decoder = BertLMHeadModel.from_pretrained('bert-base-uncased',config=decoder_config)
+            self.text_decoder = BertLMHeadModel.from_pretrained('bert-base-uncased',config=decoder_config, ignore_mismatched_sizes=True)
         elif args.bert == 'sci':
             self.text_decoder = BertLMHeadModel.from_pretrained('allenai/scibert_scivocab_uncased',config=decoder_config, ignore_mismatched_sizes=True)
         elif args.bert == 'cli':
-            self.text_decoder = BertLMHeadModel.from_pretrained('emilyalsentzer/Bio_ClinicalBERT',config=decoder_config)
+            self.text_decoder = BertLMHeadModel.from_pretrained('emilyalsentzer/Bio_ClinicalBERT',config=decoder_config, ignore_mismatched_sizes=True)
         self.text_decoder.resize_token_embeddings(len(self.tokenizer))
         tie_encoder_decoder_weights(self.text_encoder,self.text_decoder.bert,'','/attention')
 
@@ -154,8 +154,8 @@ class BLIP_Decoder(nn.Module):
         image_feat = F.normalize(self.vision_proj(image_embeds[:, 0, :]), dim=-1)
 
         text = self.tokenizer(caption, padding='max_length', truncation=True, max_length=90, return_tensors="pt").to(image.device)
-        text_output = self.text_encoder(text.input_ids, attention_mask=text.attention_mask,
-                                        return_dict=True, mode='text')
+        text_encoder_input_ids = text.input_ids.clone()
+        text_output = self.text_encoder(text_encoder_input_ids, attention_mask=text.attention_mask, return_dict=True, mode='text')
         text_feat = F.normalize(self.text_proj(text_output.last_hidden_state[:, 0, :]), dim=-1)
         self.create_knowledge(image.device, text_feat, knowledge_tc)
         
@@ -291,9 +291,11 @@ class BLIP_Decoder(nn.Module):
 
         with torch.no_grad():
             weights_t2i = F.softmax(sim_t2i[:,:bs],dim=1)+1e-4
-            weights_t2i.fill_diagonal_(0)
+            if bs > 1:
+                weights_t2i.fill_diagonal_(0)
             weights_i2t = F.softmax(sim_i2t[:,:bs],dim=1)+1e-4
-            weights_i2t.fill_diagonal_(0)
+            if bs > 1:
+                weights_i2t.fill_diagonal_(0)
 
         # select a negative image for each text
         image_embeds_neg = []

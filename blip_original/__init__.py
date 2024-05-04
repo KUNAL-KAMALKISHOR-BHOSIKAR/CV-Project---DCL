@@ -7,8 +7,10 @@ from torchvision.transforms.functional import InterpolationMode
 
 from .medical_dataset import generation_train, generation_eval
 
+import random
 
-def create_dataset(dataset, args, config):
+
+def create_dataset(dataset, args, config, subsample_ratio = 1.0):
     #fowllowed by R2Gen
     transform_train = transforms.Compose([
         transforms.Resize(224),
@@ -24,9 +26,23 @@ def create_dataset(dataset, args, config):
                              (0.229, 0.224, 0.225))])
 
     if dataset =='generation_iu_xray':
-        train_dataset = generation_train(transform_train, args.image_dir.split('&')[0], args.knowledge_path.split('&')[0], prompt=config['prompt'], dataset='iu_xray', args=args)
-        val_dataset = generation_eval(transform_test, args.image_dir.split('&')[0], args.ann_path.split('&')[0], 'val', 'iu_xray', args=args)
-        test_dataset = generation_eval(transform_test, args.image_dir.split('&')[0], args.ann_path.split('&')[0], 'test', 'iu_xray', args=args)
+        all_train_dataset = generation_train(transform_train, args.image_dir.split('&')[0], args.knowledge_path.split('&')[0], prompt=config['prompt'], dataset='iu_xray', args=args)
+        if subsample_ratio < 1.0:
+            num_samples = int(len(all_train_dataset) * subsample_ratio)
+            train_indices = random.sample(range(len(all_train_dataset)), num_samples)
+            train_dataset = torch.utils.data.Subset(all_train_dataset, train_indices)
+        else:
+            train_dataset = all_train_dataset
+        all_val_dataset = generation_eval(transform_test, args.image_dir.split('&')[0], args.ann_path.split('&')[0], 'val', 'iu_xray', args=args)
+        if subsample_ratio < 1.0:
+            num_samples = int(len(all_val_dataset) * subsample_ratio)
+            val_indices = random.sample(range(len(all_val_dataset)), num_samples)
+            val_dataset = torch.utils.data.Subset(all_val_dataset, val_indices)
+        all_test_dataset = generation_eval(transform_test, args.image_dir.split('&')[0], args.ann_path.split('&')[0], 'test', 'iu_xray', args=args)
+        if subsample_ratio < 1.0:
+            num_samples = int(len(all_test_dataset) * subsample_ratio)
+            test_indices = random.sample(range(len(all_test_dataset)), num_samples)
+            test_dataset = torch.utils.data.Subset(all_test_dataset, test_indices)
         return train_dataset, val_dataset, test_dataset
 
     elif dataset =='generation_mimic_cxr':

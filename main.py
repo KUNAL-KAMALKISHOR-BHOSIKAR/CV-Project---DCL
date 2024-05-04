@@ -12,6 +12,7 @@ from models.blip import blip_decoder
 from blip_original import create_loader, create_dataset
 import os
 from transformers import AutoTokenizer, AutoModel
+from utils import init_distributed_mode
 
 
 
@@ -34,7 +35,7 @@ def main(args, config):
     tokenizer.add_special_tokens({'additional_special_tokens': ['[ENC]']})
     tokenizer.enc_token_id = tokenizer.additional_special_tokens_ids[0]
     # tokenizer = BertTokenizer.from_pretrained(args.text_encoder)
-    train_dataset, val_dataset, test_dataset = create_dataset('generation_%s'%args.dataset_name, args, config)
+    train_dataset, val_dataset, test_dataset = create_dataset('generation_%s'%args.dataset_name, args, config, subsample_ratio = 0.01)
     samplers = [None, None, None]
     train_dataloader, val_dataloader, test_dataloader = create_loader([train_dataset, val_dataset, test_dataset], samplers,
                                                             batch_size=[args.batch_size] * 3,
@@ -54,6 +55,8 @@ def main(args, config):
     # build optimizer, learning rate scheduler
     optimizer = build_optimizer_blip(args, model)
     lr_scheduler = build_lr_scheduler(args, optimizer)
+
+    distribute = init_distributed_mode(args)
 
     # build trainer and start to train
     trainer = Trainer(model, criterion, metrics, optimizer, args, lr_scheduler, train_dataloader, val_dataloader, test_dataloader, tokenizer)
@@ -163,6 +166,7 @@ if __name__ == '__main__':
     parser.add_argument('--bert', type=str, default='base', choices=['base', 'sci', 'cli'],
                         help='the dataset to be used.')
     parser.add_argument('--concat', default=False, type=bool)
+    parser.add_argument('--task', type=str, default='pretrain', choices=['pretrain', 'retrieval'], help='the task to be used.')
     args = parser.parse_args()
 
     config = yaml.load(open(args.config, 'r'), Loader=yaml.Loader)
